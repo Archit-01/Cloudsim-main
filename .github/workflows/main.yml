@@ -1,57 +1,47 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" 
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
-         http://maven.apache.org/xsd/maven-4.0.0.xsd">
-         
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>cloudsim</groupId>
-  <artifactId>cloudsim-simulation</artifactId>
-  <version>1.0</version>
+name: CloudSim CI/CD Pipeline
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
-        <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.1.2</version>
-        <executions>
-          <execution>
-            <id>copy-dependencies</id>
-            <phase>package</phase>
-            <goals>
-              <goal>copy-dependencies</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-  <dependencies>
-    <dependency>
-      <groupId>cloudsim</groupId>
-      <artifactId>cloudsim</artifactId>
-      <version>3.0.3</version>
-      <scope>system</scope>
-      <systemPath>${project.basedir}/lib/cloudsim-3.0.3.jar</systemPath>
-    </dependency>
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Java 8
+      uses: actions/setup-java@v4
+      with:
+        java-version: '8'
+        distribution: 'temurin'
+        cache: 'maven'
 
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-math3</artifactId>
-      <version>3.6.1</version>
-      <scope>system</scope>
-      <systemPath>${project.basedir}/lib/commons-math3-3.6.1.jar</systemPath>
-    </dependency>
-  </dependencies>
+    - name: Verify directory structure
+      run: |
+        echo "Working Directory: $PWD"
+        ls -R
 
-</project>
+    - name: Build project with Maven
+      run: |
+        mvn clean compile
+
+    - name: Run simulation
+      run: |
+        echo "Copying dependencies..."
+        mvn dependency:copy-dependencies
+        echo "Running simulation..."
+        java -cp "target/classes:target/dependency/*:lib/*" cloudsim.simulations.CostOptimizationSimulation
+
+    - name: Archive simulation results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: simulation-output
+        path: |
+          target/classes/
+          target/surefire-reports/
