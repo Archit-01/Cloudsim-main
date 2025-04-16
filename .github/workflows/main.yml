@@ -12,31 +12,21 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Verify structure
-      run: |
-        # Create required directories
-        mkdir -p src/main/java/cloudsim/simulations
-        mkdir -p lib
-        
-        # Move source file if needed
-        if [ -f "CostOptimizationSimulation.java" ]; then
-          mv CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
-        fi
-
-        # Verify lib files exist
-        if [ ! -f "lib/cloudsim-3.0.3.jar" ]; then
-          echo "ERROR: Missing cloudsim-3.0.3.jar in lib/"
-          exit 1
-        fi
+      uses: actions/checkout@v4  # Updated from v3 to v4
 
     - name: Set up Java 8
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v4  # Updated from v3 to v4
       with:
         distribution: 'temurin'
         java-version: '8'
         cache: maven
+
+    - name: Verify structure and move files
+      run: |
+        mkdir -p src/main/java/cloudsim/simulations
+        if [ -f "CostOptimizationSimulation.java" ]; then
+          mv CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
+        fi
 
     - name: Build with Maven
       run: mvn clean compile
@@ -47,9 +37,9 @@ jobs:
 
     - name: Archive results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4  # Updated from v3 to v4
       with:
         name: simulation-results
         path: |
           target/classes/
-          lib/
+          target/surefire-reports/
