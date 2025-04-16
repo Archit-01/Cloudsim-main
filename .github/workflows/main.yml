@@ -13,52 +13,54 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Verify initial structure
       run: |
-        echo "Current working directory: $PWD"
-        echo "Directory contents:"
+        echo "Working Directory: $PWD"
+        echo "Top-level Files:"
         ls -la
-        echo "Source directory contents:"
-        ls -la src/ || echo "No src directory"
-        echo "Checking for source file:"
+        echo "Looking for CostOptimizationSimulation.java"
         find . -name "CostOptimizationSimulation.java" || echo "File not found"
-        
+    
     - name: Set up Java 8
       uses: actions/setup-java@v4
       with:
-        java-version: '8'
         distribution: 'temurin'
-        cache: 'maven'
-        
-    - name: Prepare directory structure
+        java-version: '8'
+        cache: maven
+
+    - name: Ensure Maven structure and move source file
       run: |
-        # Create standard Maven structure
         mkdir -p src/main/java/cloudsim/simulations
         
-        # Find and move source file if it exists elsewhere
-        if [ -f "src/cloudsim/simulations/CostOptimizationSimulation.java" ]; then
-          echo "Moving file from old location"
-          mv src/cloudsim/simulations/CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
-        elif [ -f "CostOptimizationSimulation.java" ]; then
-          echo "Moving file from root directory"
+        if [ -f "CostOptimizationSimulation.java" ]; then
           mv CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
-        else
-          echo "Source file not found in expected locations"
-          find . -name "CostOptimizationSimulation.java" || echo "File not found anywhere"
+        elif [ -f "src/cloudsim/simulations/CostOptimizationSimulation.java" ]; then
+          mv src/cloudsim/simulations/CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
         fi
         
+        echo "Updated Java Source Structure:"
+        find src/main/java
+
+    - name: Check for pom.xml
+      run: |
+        if [ ! -f "pom.xml" ]; then
+          echo "ERROR: pom.xml not found in the root directory!"
+          exit 1
+        fi
+
     - name: Build with Maven
-      run: mvn -B clean compile
-      
+      run: mvn clean compile
+
     - name: Run simulation
       run: |
-        # Verify the compiled class exists
-        ls -la target/classes/cloudsim/simulations/ || echo "No classes generated"
-        # Run the simulation
-        java -cp "target/classes:lib/*" cloudsim.simulations.CostOptimizationSimulation
-      
-    - name: Archive results
+        echo "Checking class output:"
+        ls -la target/classes/cloudsim/simulations/ || echo "No compiled classes"
+
+        echo "Running Java Simulation..."
+        java -cp "target/classes:target/dependency/*" cloudsim.simulations.CostOptimizationSimulation
+
+    - name: Archive build and reports
       if: always()
       uses: actions/upload-artifact@v4
       with:
