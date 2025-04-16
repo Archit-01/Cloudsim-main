@@ -14,14 +14,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Verify initial structure
+    - name: Verify structure
       run: |
-        echo "Working Directory: $PWD"
-        echo "Top-level Files:"
-        ls -la
-        echo "Looking for CostOptimizationSimulation.java"
-        find . -name "CostOptimizationSimulation.java" || echo "File not found"
-    
+        # Create required directories
+        mkdir -p src/main/java/cloudsim/simulations
+        mkdir -p lib
+        
+        # Move source file if needed
+        if [ -f "CostOptimizationSimulation.java" ]; then
+          mv CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
+        fi
+
+        # Verify lib files exist
+        if [ ! -f "lib/cloudsim-3.0.3.jar" ]; then
+          echo "ERROR: Missing cloudsim-3.0.3.jar in lib/"
+          exit 1
+        fi
+
     - name: Set up Java 8
       uses: actions/setup-java@v4
       with:
@@ -29,42 +38,18 @@ jobs:
         java-version: '8'
         cache: maven
 
-    - name: Ensure Maven structure and move source file
-      run: |
-        mkdir -p src/main/java/cloudsim/simulations
-        
-        if [ -f "CostOptimizationSimulation.java" ]; then
-          mv CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
-        elif [ -f "src/cloudsim/simulations/CostOptimizationSimulation.java" ]; then
-          mv src/cloudsim/simulations/CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
-        fi
-        
-        echo "Updated Java Source Structure:"
-        find src/main/java
-
-    - name: Check for pom.xml
-      run: |
-        if [ ! -f "pom.xml" ]; then
-          echo "ERROR: pom.xml not found in the root directory!"
-          exit 1
-        fi
-
     - name: Build with Maven
       run: mvn clean compile
 
     - name: Run simulation
       run: |
-        echo "Checking class output:"
-        ls -la target/classes/cloudsim/simulations/ || echo "No compiled classes"
+        java -cp "target/classes:lib/*" cloudsim.simulations.CostOptimizationSimulation
 
-        echo "Running Java Simulation..."
-        java -cp "target/classes:target/dependency/*" cloudsim.simulations.CostOptimizationSimulation
-
-    - name: Archive build and reports
+    - name: Archive results
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: simulation-output
+        name: simulation-results
         path: |
           target/classes/
-          target/surefire-reports/
+          lib/
