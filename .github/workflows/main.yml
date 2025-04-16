@@ -1,0 +1,48 @@
+name: CloudSim CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Java 8
+      uses: actions/setup-java@v3
+      with:
+        java-version: '8'
+        distribution: 'temurin'
+        
+    - name: Verify directory structure
+      run: |
+        ls -la
+        ls -la src/
+        ls -la lib/
+        
+    - name: Prepare Maven structure
+      run: |
+        mkdir -p src/main/java/cloudsim/simulations
+        if [ -f "src/cloudsim/simulations/CostOptimizationSimulation.java" ]; then
+          mv src/cloudsim/simulations/CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
+        fi
+        
+    - name: Build with Maven
+      run: mvn clean compile
+      
+    - name: Run CloudSim
+      run: java -cp "target/classes:lib/*" cloudsim.simulations.CostOptimizationSimulation
+      
+    - name: Archive results
+      uses: actions/upload-artifact@v3
+      with:
+        name: simulation-results
+        path: |
+          target/classes/
+          target/surefire-reports/
