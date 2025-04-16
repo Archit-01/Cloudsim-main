@@ -2,13 +2,13 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.cloudbus.cloudsim</groupId>
-  <artifactId>cloudsim-project</artifactId>
+  <groupId>cloudsim</groupId>
+  <artifactId>cloudsim-simulation</artifactId>
   <version>1.0</version>
 
   <build>
-    <sourceDirectory>src/main/java</sourceDirectory>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -19,17 +19,32 @@
           <target>1.8</target>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.2</version>
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
   <dependencies>
     <dependency>
-      <groupId>org.cloudbus.cloudsim</groupId>
+      <groupId>cloudsim</groupId>
       <artifactId>cloudsim</artifactId>
       <version>3.0.3</version>
       <scope>system</scope>
       <systemPath>${project.basedir}/lib/cloudsim-3.0.3.jar</systemPath>
     </dependency>
+
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-math3</artifactId>
@@ -38,4 +53,5 @@
       <systemPath>${project.basedir}/lib/commons-math3-3.6.1.jar</systemPath>
     </dependency>
   </dependencies>
+
 </project>
