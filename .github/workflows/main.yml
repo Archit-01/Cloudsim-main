@@ -12,43 +12,57 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4  # Updated to v4
-    
+      uses: actions/checkout@v4
+      
+    - name: Verify initial structure
+      run: |
+        echo "Current working directory: $PWD"
+        echo "Directory contents:"
+        ls -la
+        echo "Source directory contents:"
+        ls -la src/ || echo "No src directory"
+        echo "Checking for source file:"
+        find . -name "CostOptimizationSimulation.java" || echo "File not found"
+        
     - name: Set up Java 8
-      uses: actions/setup-java@v4  # Updated to v4
+      uses: actions/setup-java@v4
       with:
         java-version: '8'
         distribution: 'temurin'
         cache: 'maven'
         
-    - name: Verify project structure
+    - name: Prepare directory structure
       run: |
-        echo "Current directory structure:"
-        ls -la
-        echo "Source files:"
-        find src -type f
-        echo "Library files:"
-        ls -la lib/
-        
-    - name: Prepare Maven structure
-      run: |
+        # Create standard Maven structure
         mkdir -p src/main/java/cloudsim/simulations
-        # Move source file if it exists in non-standard location
-        [ -f "src/cloudsim/simulations/CostOptimizationSimulation.java" ] && \
-          mv "src/cloudsim/simulations/CostOptimizationSimulation.java" "src/main/java/cloudsim/simulations/"
+        
+        # Find and move source file if it exists elsewhere
+        if [ -f "src/cloudsim/simulations/CostOptimizationSimulation.java" ]; then
+          echo "Moving file from old location"
+          mv src/cloudsim/simulations/CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
+        elif [ -f "CostOptimizationSimulation.java" ]; then
+          echo "Moving file from root directory"
+          mv CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
+        else
+          echo "Source file not found in expected locations"
+          find . -name "CostOptimizationSimulation.java" || echo "File not found anywhere"
+        fi
         
     - name: Build with Maven
-      run: mvn -B clean compile  # -B for batch mode
+      run: mvn -B clean compile
       
-    - name: Run CloudSim
-      run: java -cp "target/classes:lib/*" cloudsim.simulations.CostOptimizationSimulation
+    - name: Run simulation
+      run: |
+        # Verify the compiled class exists
+        ls -la target/classes/cloudsim/simulations/ || echo "No classes generated"
+        # Run the simulation
+        java -cp "target/classes:lib/*" cloudsim.simulations.CostOptimizationSimulation
       
-    - name: Upload results
+    - name: Archive results
       if: always()
-      uses: actions/upload-artifact@v4  # Updated to v4
+      uses: actions/upload-artifact@v4
       with:
-        name: cloudsim-results
+        name: simulation-output
         path: |
           target/classes/
           target/surefire-reports/
-        retention-days: 3
