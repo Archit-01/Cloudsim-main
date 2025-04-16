@@ -12,37 +12,43 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
-      
+      uses: actions/checkout@v4  # Updated to v4
+    
     - name: Set up Java 8
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4  # Updated to v4
       with:
         java-version: '8'
         distribution: 'temurin'
+        cache: 'maven'
         
-    - name: Verify files
+    - name: Verify project structure
       run: |
+        echo "Current directory structure:"
         ls -la
-        ls -la src/
+        echo "Source files:"
+        find src -type f
+        echo "Library files:"
         ls -la lib/
         
     - name: Prepare Maven structure
       run: |
         mkdir -p src/main/java/cloudsim/simulations
-        if [ -f "src/cloudsim/simulations/CostOptimizationSimulation.java" ]; then
-          mv src/cloudsim/simulations/CostOptimizationSimulation.java src/main/java/cloudsim/simulations/
-        fi
+        # Move source file if it exists in non-standard location
+        [ -f "src/cloudsim/simulations/CostOptimizationSimulation.java" ] && \
+          mv "src/cloudsim/simulations/CostOptimizationSimulation.java" "src/main/java/cloudsim/simulations/"
         
     - name: Build with Maven
-      run: mvn clean compile
+      run: mvn -B clean compile  # -B for batch mode
       
-    - name: Run simulation
+    - name: Run CloudSim
       run: java -cp "target/classes:lib/*" cloudsim.simulations.CostOptimizationSimulation
       
-    - name: Archive results
-      uses: actions/upload-artifact@v3
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v4  # Updated to v4
       with:
-        name: simulation-results
+        name: cloudsim-results
         path: |
           target/classes/
           target/surefire-reports/
+        retention-days: 3
