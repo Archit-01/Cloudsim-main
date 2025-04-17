@@ -12,31 +12,31 @@ public class CostOptimizationSimulation {
         int mips;
         int pes;
         int ram;
-        double hourlyCost;
+        double costPerSecond;
 
-        VMType(String name, int mips, int pes, int ram, double hourlyCost) {
+        VMType(String name, int mips, int pes, int ram, double costPerHour) {
             this.name = name;
             this.mips = mips;
             this.pes = pes;
             this.ram = ram;
-            this.hourlyCost = hourlyCost;
+            this.costPerSecond = costPerHour / 3600;
         }
     }
 
+    // VM configurations with more realistic price-to-performance ratios
+    // Adjusted to make larger VMs disproportionately more expensive
     private static final VMType[] VM_TYPES = {
-        new VMType("Small", 500, 1, 512, 0.05),
-        new VMType("Medium", 1000, 2, 1024, 0.10),
-        new VMType("Large", 2000, 4, 2048, 0.20)
+        new VMType("Small", 500, 1, 512, 0.05),    // $0.05/hour
+        new VMType("Medium", 1000, 2, 1024, 0.15), // $0.15/hour (2x performance for 3x price)
+        new VMType("Large", 2000, 4, 2048, 0.40)   // $0.40/hour (4x performance for 8x price)
     };
 
     public static void main(String[] args) {
         System.out.println("Starting Cost Optimization Simulation...");
-
         try {
-            testStrategy("Cheapest-First", CostOptimizationSimulation::cheapestFirst);
-            testStrategy("Performance-First", CostOptimizationSimulation::performanceFirst);
-            testStrategy("Balanced", CostOptimizationSimulation::balancedApproach);
-
+            testStrategy("Economy (Many Small VMs)", CostOptimizationSimulation::cheapestFirst);
+            testStrategy("Balanced (Mixed VMs)", CostOptimizationSimulation::balancedApproach);
+            testStrategy("Performance (Few Large VMs)", CostOptimizationSimulation::performanceFirst);
             System.out.println("\nSimulation completed!");
         } catch (Exception e) {
             e.printStackTrace();
@@ -49,19 +49,14 @@ public class CostOptimizationSimulation {
 
     private static void testStrategy(String strategyName, AllocationStrategy strategy) throws Exception {
         System.out.println("\n=== Testing Strategy: " + strategyName + " ===");
-
         CloudSim.init(1, Calendar.getInstance(), false);
 
         Datacenter datacenter = createDatacenter("CostAware-DC");
-        if (datacenter == null) return;
-
         DatacenterBroker broker = createBroker();
-        if (broker == null) return;
-
         int brokerId = broker.getId();
 
         List<Vm> vmList = strategy.allocateVMs(brokerId);
-        List<Cloudlet> cloudletList = createWorkloads(brokerId, 20);
+        List<Cloudlet> cloudletList = createWorkloads(brokerId, 40);
 
         broker.submitVmList(vmList);
         broker.submitCloudletList(cloudletList);
@@ -80,33 +75,42 @@ public class CostOptimizationSimulation {
 
     private static List<Vm> cheapestFirst(int brokerId) {
         List<Vm> vms = new ArrayList<>();
-        for (int i = 0; i < 5; i++) {
-            vms.add(createVM(brokerId, i, VM_TYPES[0]));
+        // Use more small VMs - cheaper per hour but takes longer
+        for (int i = 0; i < 10; i++) {
+            vms.add(createVM(brokerId, i, VM_TYPES[0])); // Small VMs
         }
         return vms;
     }
 
     private static List<Vm> performanceFirst(int brokerId) {
         List<Vm> vms = new ArrayList<>();
-        for (int i = 0; i < 2; i++) {
-            vms.add(createVM(brokerId, i, VM_TYPES[2]));
+        // Use fewer large VMs - faster but more expensive per hour
+        for (int i = 0; i < 4; i++) {
+            vms.add(createVM(brokerId, i, VM_TYPES[2])); // Large VMs
         }
         return vms;
     }
 
     private static List<Vm> balancedApproach(int brokerId) {
         List<Vm> vms = new ArrayList<>();
-        for (int i = 0; i < 3; i++) {
-            VMType type = (i % 2 == 0) ? VM_TYPES[1] : VM_TYPES[0];
-            vms.add(createVM(brokerId, i, type));
-        }
+        // Use a mix of VM sizes for a balanced approach
+        // 2 Medium VMs
+        vms.add(createVM(brokerId, 0, VM_TYPES[1])); 
+        vms.add(createVM(brokerId, 1, VM_TYPES[1]));
+        
+        // 1 Large VM for performance-critical tasks
+        vms.add(createVM(brokerId, 2, VM_TYPES[2]));
+        
+        // 3 Small VMs for less demanding tasks
+        vms.add(createVM(brokerId, 3, VM_TYPES[0]));
+        vms.add(createVM(brokerId, 4, VM_TYPES[0]));
+        vms.add(createVM(brokerId, 5, VM_TYPES[0]));
+        
         return vms;
     }
 
     private static Vm createVM(int brokerId, int id, VMType type) {
-        long size = 10000; // 10GB
-        int bw = 1000;     // Bandwidth
-        return new Vm(id, brokerId, type.mips, type.pes, type.ram, bw, size,
+        return new Vm(id, brokerId, type.mips, type.pes, type.ram, 1000, 10000,
                 "Xen", new CloudletSchedulerTimeShared());
     }
 
@@ -114,15 +118,14 @@ public class CostOptimizationSimulation {
         List<Host> hostList = new ArrayList<>();
         List<Pe> peList = new ArrayList<>();
 
-        // Increased host capacity to support large VMs
-        for (int i = 0; i < 8; i++) {
-            peList.add(new Pe(i, new PeProvisionerSimple(2000))); // 2000 MIPS per PE
+        for (int i = 0; i < 32; i++) {
+            peList.add(new Pe(i, new PeProvisionerSimple(2000)));
         }
 
         hostList.add(new Host(
                 0,
-                new RamProvisionerSimple(32768), // 32GB RAM
-                new BwProvisionerSimple(10000),
+                new RamProvisionerSimple(65536),
+                new BwProvisionerSimple(100000),
                 1000000,
                 peList,
                 new VmSchedulerTimeShared(peList)));
@@ -153,9 +156,10 @@ public class CostOptimizationSimulation {
     private static List<Cloudlet> createWorkloads(int brokerId, int count) {
         List<Cloudlet> cloudlets = new ArrayList<>();
         UtilizationModel utilizationModel = new UtilizationModelFull();
-
+        Random rand = new Random(42); // Fixed seed for reproducibility
+        
         for (int i = 0; i < count; i++) {
-            long length = 1000 + (i % 3) * 500;
+            long length = 5000 + rand.nextInt(10000); // 5000-15000 MI
             Cloudlet cloudlet = new Cloudlet(i, length, 1, 300, 300,
                     utilizationModel, utilizationModel, utilizationModel);
             cloudlet.setUserId(brokerId);
@@ -165,8 +169,12 @@ public class CostOptimizationSimulation {
     }
 
     private static double calculateTotalCost(List<Vm> vms, List<Cloudlet> cloudlets) {
+        double maxFinishTime = cloudlets.stream()
+                .mapToDouble(Cloudlet::getFinishTime)
+                .max()
+                .orElse(0);
+        
         double totalCost = 0.0;
-
         for (Vm vm : vms) {
             Optional<VMType> typeOpt = Arrays.stream(VM_TYPES)
                     .filter(t -> t.mips == vm.getMips() && 
@@ -175,19 +183,13 @@ public class CostOptimizationSimulation {
                     .findFirst();
 
             if (typeOpt.isPresent()) {
-                double maxTime = cloudlets.stream()
-                        .filter(c -> c.getVmId() == vm.getId())
-                        .mapToDouble(Cloudlet::getFinishTime)
-                        .max()
-                        .orElse(0);
-                double vmCost = typeOpt.get().hourlyCost * (maxTime / 3600.0);
+                double vmCost = typeOpt.get().costPerSecond * maxFinishTime;
                 totalCost += vmCost;
                 
-                // Debug output
-                System.out.printf("VM %d (%s) ran for %.4f hours: $%.4f%n",
+                System.out.printf("VM %d (%s) was allocated for %.2f seconds: $%.4f%n",
                         vm.getId(),
                         typeOpt.get().name,
-                        maxTime/3600.0,
+                        maxFinishTime,
                         vmCost);
             }
         }
