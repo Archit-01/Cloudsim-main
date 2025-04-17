@@ -3,7 +3,6 @@ package cloudsim.simulations;
 import org.cloudbus.cloudsim.*;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.provisioners.*;
-
 import java.util.*;
 
 public class CostOptimizationSimulation {
@@ -73,20 +72,8 @@ public class CostOptimizationSimulation {
         double totalCost = calculateTotalCost(vmList, finishedCloudlets);
         double avgCompletionTime = calculateAvgCompletionTime(finishedCloudlets);
 
-        System.out.printf("\nResults - Cost: $%.2f | Avg Time: %.2f sec | VMs Used: %d\n",
+        System.out.printf("\nResults - Cost: $%.4f | Avg Time: %.2f sec | VMs Used: %d\n",
                 totalCost, avgCompletionTime, vmList.size());
-
-        System.out.println("\nDetailed Cloudlet Results:");
-        System.out.println("CloudletID\tStatus\tVM ID\tTime\tStart\tFinish");
-        for (Cloudlet cloudlet : finishedCloudlets) {
-            System.out.printf("%d\t\t%s\t%d\t%.2f\t%.2f\t%.2f\n",
-                    cloudlet.getCloudletId(),
-                    cloudlet.getStatus() == Cloudlet.SUCCESS ? "SUCCESS" : "FAILED",
-                    cloudlet.getVmId(),
-                    cloudlet.getActualCPUTime(),
-                    cloudlet.getExecStartTime(),
-                    cloudlet.getFinishTime());
-        }
 
         CloudSim.terminateSimulation();
     }
@@ -127,13 +114,14 @@ public class CostOptimizationSimulation {
         List<Host> hostList = new ArrayList<>();
         List<Pe> peList = new ArrayList<>();
 
-        for (int i = 0; i < 4; i++) {
-            peList.add(new Pe(i, new PeProvisionerSimple(1000)));
+        // Increased host capacity to support large VMs
+        for (int i = 0; i < 8; i++) {
+            peList.add(new Pe(i, new PeProvisionerSimple(2000))); // 2000 MIPS per PE
         }
 
         hostList.add(new Host(
                 0,
-                new RamProvisionerSimple(16384),
+                new RamProvisionerSimple(32768), // 32GB RAM
                 new BwProvisionerSimple(10000),
                 1000000,
                 peList,
@@ -177,19 +165,30 @@ public class CostOptimizationSimulation {
     }
 
     private static double calculateTotalCost(List<Vm> vms, List<Cloudlet> cloudlets) {
-        double totalCost = 0;
+        double totalCost = 0.0;
 
         for (Vm vm : vms) {
             Optional<VMType> typeOpt = Arrays.stream(VM_TYPES)
-                    .filter(t -> t.mips == vm.getMips() && t.ram == vm.getRam())
+                    .filter(t -> t.mips == vm.getMips() && 
+                               t.ram == vm.getRam() && 
+                               t.pes == vm.getNumberOfPes())
                     .findFirst();
 
             if (typeOpt.isPresent()) {
                 double maxTime = cloudlets.stream()
                         .filter(c -> c.getVmId() == vm.getId())
                         .mapToDouble(Cloudlet::getFinishTime)
-                        .max().orElse(0);
-                totalCost += typeOpt.get().hourlyCost * (maxTime / 3600.0);
+                        .max()
+                        .orElse(0);
+                double vmCost = typeOpt.get().hourlyCost * (maxTime / 3600.0);
+                totalCost += vmCost;
+                
+                // Debug output
+                System.out.printf("VM %d (%s) ran for %.4f hours: $%.4f%n",
+                        vm.getId(),
+                        typeOpt.get().name,
+                        maxTime/3600.0,
+                        vmCost);
             }
         }
         return totalCost;
